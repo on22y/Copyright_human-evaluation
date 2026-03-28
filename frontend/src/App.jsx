@@ -22,6 +22,13 @@ function App() {
     fetchIAA();
   }, []);
 
+  // Annotator가 바뀌면 해당 샘플 annotation 로드
+  useEffect(() => {
+    if (current && annotator) {
+      loadAnnotation(current);
+    }
+  }, [annotator]);
+
   // 샘플 + annotation 로드 함수
   const loadAnnotation = async (sampleData) => {
     if (annotator) {
@@ -41,7 +48,9 @@ function App() {
   };
 
   const fetchSample = async () => {
-    const res = await axios.get("http://127.0.0.1:8000/sample");
+    const res = await axios.get(
+      `http://127.0.0.1:8000/sample${annotator ? `?annotator=${annotator}` : ""}`
+    );
     const data = res.data;
 
     setSample(data);
@@ -54,7 +63,9 @@ function App() {
   const nextSample = async () => {
     if (currentStep === total) return;
 
-    const res = await axios.get("http://127.0.0.1:8000/next");
+    const res = await axios.get(
+      `http://127.0.0.1:8000/next${annotator ? `?annotator=${annotator}` : ""}`
+    );
     const data = res.data;
 
     setSample(data);
@@ -67,7 +78,9 @@ function App() {
   const prevSample = async () => {
     if (currentStep === 1) return;
 
-    const res = await axios.get("http://127.0.0.1:8000/prev");
+    const res = await axios.get(
+      `http://127.0.0.1:8000/prev${annotator ? `?annotator=${annotator}` : ""}`
+    );
     const data = res.data;
 
     setSample(data);
@@ -124,7 +137,6 @@ function App() {
 
       // 저장 후 현재 값 유지 + 다음으로 이동
       nextSample();
-
     } catch (err) {
       console.error(err);
       alert("제출 실패");
@@ -132,7 +144,7 @@ function App() {
   };
 
   const renderRadios = (q) =>
-    [1,2,3,4,5].map(n => (
+    [1, 2, 3, 4, 5].map((n) => (
       <label key={n} className="radio">
         <input
           type="radio"
@@ -147,7 +159,6 @@ function App() {
 
   return (
     <div className="container">
-
       {/* HEADER */}
       <div className="header">
         <h1>News Sentence Human Evaluation</h1>
@@ -172,13 +183,24 @@ function App() {
           </span>
           <span>IAA: {iaa ? iaa.toFixed(2) : "-"}</span>
 
-          <button onClick={prevSample} className="nav-btn" disabled={currentStep === 1}>← Prev</button>
-          <button onClick={nextSample} className="nav-btn" disabled={currentStep === total}>Next →</button>
+          <button
+            onClick={prevSample}
+            className="nav-btn"
+            disabled={currentStep === 1}
+          >
+            ← Prev
+          </button>
+          <button
+            onClick={nextSample}
+            className="nav-btn"
+            disabled={currentStep === total}
+          >
+            Next →
+          </button>
         </div>
       </div>
 
       <div className="main">
-
         {/* LEFT */}
         <div className="card">
           <div className="meta">
@@ -208,10 +230,15 @@ function App() {
             </p>
 
             <div className="annotator-group">
-              {["A", "B", "C"].map(a => (
+              {["A", "B", "C"].map((a) => (
                 <button
                   key={a}
-                  onClick={() => setAnnotator(a)}
+                  onClick={async () => {
+                    setAnnotator(a);
+                    if (current) {
+                      await loadAnnotation(current);
+                    }
+                  }}
                   className={annotator === a ? "selected" : ""}
                 >
                   Annotator {a}
@@ -234,7 +261,7 @@ function App() {
               <span className="required">*</span>
             </p>
             <div className="label-group">
-              {["F", "C", "M", "Unsure"].map(l => (
+              {["F", "C", "M", "Unsure"].map((l) => (
                 <button
                   key={l}
                   onClick={() => setLabel(l)}
@@ -250,7 +277,6 @@ function App() {
             Submit
           </button>
         </div>
-
       </div>
     </div>
   );
