@@ -20,6 +20,7 @@ function App() {
   const current = sample;
 
   const [category, setCategory] = useState("ALL");
+  const [progressDetail, setProgressDetail] = useState({});
 
   useEffect(() => {
     fetchSample();
@@ -38,7 +39,8 @@ function App() {
   // category 변경 시 
   useEffect(() => {
     fetchSample(category);
-    fetchProgress(category);
+    fetchProgress();
+    fetchProgressDetail(category);
   }, [category]);
 
   // 샘플 + annotation 로드 함수
@@ -109,6 +111,13 @@ function App() {
     setProgress(res.data);
   };
 
+  const fetchProgressDetail = async (selectedCategory = category) => {
+    const res = await axios.get(
+      `http://127.0.0.1:8000/progress_detail?category=${selectedCategory}`
+    );
+    setProgressDetail(res.data);
+  };
+
   const fetchIAA = async () => {
     const res = await axios.get("http://127.0.0.1:8000/iaa");
     setIAA(res.data);
@@ -147,6 +156,7 @@ function App() {
       });
 
       fetchProgress();
+      fetchProgressDetail(category);
       fetchIAA();
 
       // 저장 후 현재 값 유지 + 다음으로 이동
@@ -185,7 +195,7 @@ function App() {
       <div className="header">
         <h1>News Sentence Human Evaluation</h1>
 
-        <div className="header-right">
+        <div className="header-right nowrap">
           <div className="progress-container">
             <div className="progress-bar">
               <div
@@ -200,18 +210,39 @@ function App() {
             <span className="progress-text">
               {progress.done} / {progress.total}
             </span>
+
+            <div className="annotator-progress horizontal">
+              {["A", "B", "C"].map((a) => {
+                const p = progressDetail[a] || { done: 0, total: 1 };
+
+                return (
+                  <div key={a} className="annotator-row">
+                    <span>Annotator {a}</span>
+                    <div className="mini-bar">
+                      <div
+                        className="mini-fill"
+                        style={{ width: `${(p.done / p.total) * 100}%` }}
+                      />
+                    </div>
+                    <span>
+                      {p.done} / {p.total}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* 현재 탐색 위치 */}
-          <span className="current-step">
+          <span className="inline-text">
             Viewing {currentStep} / {total}
           </span>
           
-          {/* 핵심 지표만 */}
-          <span>
+          {/* IAA */}
+          <span className="inline-text">
             Fleiss: {iaa.fleiss_kappa?.toFixed(2) || "-"}
           </span>
-          <span>
+          <span className="inline-text">
             Alpha: {iaa.krippendorff_alpha?.toFixed(2) || "-"}
           </span>
           {/* <span>
@@ -221,20 +252,22 @@ function App() {
             Partial: {iaa.partial_agreement?.toFixed(2) || "-"}
           </span> */}
 
-          <button
-            onClick={prevSample}
-            className="nav-btn"
-            disabled={currentStep === 1}
-          >
-            ← Prev
-          </button>
-          <button
-            onClick={nextSample}
-            className="nav-btn"
-            disabled={currentStep === total}
-          >
-            Next →
-          </button>
+          <div className="nav-group">
+            <button
+              onClick={prevSample}
+              className="nav-btn"
+              disabled={currentStep === 1}
+            >
+              ← Prev
+            </button>
+            <button
+              onClick={nextSample}
+              className="nav-btn"
+              disabled={currentStep === total}
+            >
+              Next →
+            </button>
+          </div>
         </div>
       </div>
 
@@ -276,7 +309,7 @@ function App() {
                 ))}
               </div>
 
-          <div className="question">
+          <div className="annotator">
             <p>
               Annotator
               <span className="required">*</span>
