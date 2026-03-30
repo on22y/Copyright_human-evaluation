@@ -229,25 +229,76 @@ def get_annotation(sample_id: str, annotator: str):
 
 
 @app.get("/progress")
-def progress(annotator: str = None):
+def progress(annotator: str = None, category: str = None):
     conn = get_db()
     cursor = conn.cursor()
 
-    total_samples = len(samples)
+    # 전체 샘플 수 (카테고리별)
+    if category and category != "ALL":
+        total = cursor.execute("""
+            SELECT COUNT(*)
+            FROM samples
+            WHERE category=?
+        """, (category,)).fetchone()[0]
+    else:
+        total = cursor.execute("""
+            SELECT COUNT(*)
+            FROM samples
+        """).fetchone()[0]
 
-    # annotator별 진행도
+    # 진행된 샘플 수
     if annotator:
-        done = cursor.execute("""
-            SELECT COUNT(DISTINCT sample_id)
-            FROM annotations
-            WHERE annotator=?
-        """, (annotator,)).fetchone()[0]
+        if category and category != "ALL":
+            done = cursor.execute("""
+                SELECT COUNT(DISTINCT a.sample_id)
+                FROM annotations a
+                JOIN samples s ON a.sample_id = s.sample_id
+                WHERE a.annotator=? AND s.category=?
+            """, (annotator, category)).fetchone()[0]
+        else:
+            done = cursor.execute("""
+                SELECT COUNT(DISTINCT sample_id)
+                FROM annotations
+                WHERE annotator=?
+            """, (annotator,)).fetchone()[0]
     else:
         done = 0
 
     conn.close()
 
-    return {"done": done, "total": total_samples}
+    return {"done": done, "total": total}
+
+
+@app.get("/progress_by_category")
+def progress_by_category(annotator: str):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    categories = cursor.execute("""
+        SELECT DISTINCT category FROM samples
+    """).fetchall()
+
+    result = {}
+
+    for (cat,) in categories:
+        total = cursor.execute("""
+            SELECT COUNT(*) FROM samples WHERE category=?
+        """, (cat,)).fetchone()[0]
+
+        done = cursor.execute("""
+            SELECT COUNT(DISTINCT a.sample_id)
+            FROM annotations a
+            JOIN samples s ON a.sample_id = s.sample_id
+            WHERE a.annotator=? AND s.category=?
+        """, (annotator, cat)).fetchone()[0]
+
+        result[cat] = {
+            "done": done,
+            "total": total
+        }
+
+    conn.close()
+    return result
 
 
 from iaa import (
