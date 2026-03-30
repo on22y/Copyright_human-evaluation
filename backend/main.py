@@ -229,18 +229,34 @@ def get_annotation(sample_id: str, annotator: str):
 
 
 @app.get("/progress")
-def progress():
+def progress(annotator: str = None):
     conn = get_db()
     cursor = conn.cursor()
 
     total_samples = len(samples)
-    done = cursor.execute("""
-        SELECT COUNT(DISTINCT sample_id)
-        FROM annotations
-    """).fetchone()[0]
+
+    # annotator별 진행도
+    if annotator:
+        done = cursor.execute("""
+            SELECT COUNT(DISTINCT sample_id)
+            FROM annotations
+            WHERE annotator=?
+        """, (annotator,)).fetchone()[0]
+    else:
+        done = 0
 
     conn.close()
+
     return {"done": done, "total": total_samples}
+
+
+from iaa import (
+    compute_fleiss_kappa,
+    # compute_exact_agreement,
+    # compute_partial_agreement,
+    # compute_cohen_kappa,
+    compute_krippendorff_alpha
+)
 
 
 @app.get("/iaa")
@@ -255,30 +271,41 @@ def get_iaa():
     conn.close()
 
     sample_dict = defaultdict(list)
+
     for sample_id, annotator, label in rows:
         if label not in ["F", "C", "M"]:
             continue
         sample_dict[sample_id].append((annotator, label))
 
-    filtered = []
-    for sample_id, items in sample_dict.items():
-        annotators = set([a for a, _ in items])
+    # 3명 다 있는 샘플만
+    filtered_dict = {}
+    for sid, items in sample_dict.items():
+        annotators = set([a for a,_ in items])
         if len(annotators) == 3:
-            for _, label in items:
-                filtered.append({
-                    "sample_id": sample_id,
-                    "label": label
-                })
+            filtered_dict[sid] = [items]
 
-    if len(filtered) == 0:
-        return {"kappa": 0}
+    if len(filtered_dict) == 0:
+        return {
+            "fleiss_kappa": 0,
+            # "exact_agreement": 0,
+            # "partial_agreement": 0,
+            # "cohen_kappa": {},
+            "krippendorff_alpha": 0
+        }
 
-    try:
-        kappa = compute_fleiss_kappa(filtered)
-        if math.isnan(kappa) or math.isinf(kappa):
-            return {"kappa": 0}
-    except Exception as e:
-        print("IAA 오류:", e)
-        return {"kappa": 0}
+    # Fleiss용 변환
+    fleiss_input = []
+    for sid, labels in filtered_dict.items():
+        for _, l in items:
+            fleiss_input.append({
+                "sample_id": sid,
+                "label": l
+            })
 
-    return {"kappa": kappa}
+    return {
+        "fleiss_kappa": compute_fleiss_kappa(fleiss_input),
+        # "exact_agreement": compute_exact_agreement(filtered_dict),
+        # "partial_agreement": compute_partial_agreement(filtered_dict),
+        # "cohen_kappa": compute_cohen_kappa(sample_dict),
+        "krippendorff_alpha": compute_krippendorff_alpha(filtered_dict)
+    }
