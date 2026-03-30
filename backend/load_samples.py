@@ -4,58 +4,64 @@ import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-file_path = os.path.join(
-    BASE_DIR,
-    "sample",
-    "TS_annotation_local_batch5_results_0828.json"
-)
+SAMPLE_DIR = os.path.join(BASE_DIR, "sample")
 
-def load_samples(json_path):
+
+def load_all_samples():
     init_db()
 
     conn = get_db()
     cursor = conn.cursor()
 
-    with open(json_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    total_count = 0
 
-    documents = data["documents"]
+    # sample 폴더 안 모든 json 파일 순회
+    for filename in os.listdir(SAMPLE_DIR):
+        if not filename.endswith(".json"):
+            continue
 
-    count = 0
+        file_path = os.path.join(SAMPLE_DIR, filename)
 
-    for doc_idx, doc in enumerate(documents, start=1):
-        category = doc.get("topic", "UNK")
+        # 파일명으로 category 자동 설정
+        category = filename.replace(".json", "")
 
-        article_index = f"{doc_idx:03d}"
-        article_id = f"{category}_{article_index}"
+        print(f"📂 {category} 로딩 중...")
 
-        for sent_idx, sample in enumerate(doc["samples"], start=1):
-            sentence_index = f"{sent_idx:03d}"
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
 
-            safe_category = category.replace("/", "_")
+        articles = data["articles"]
 
-            sample_id = f"{safe_category}_{doc_idx:03d}_{sent_idx:03d}"
+        count = 0
 
-            cursor.execute("""
-                INSERT OR IGNORE INTO samples
-                (sample_id, article_id, category, previous, target, next, predicted)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                sample_id,
-                article_id,
-                category,
-                sample.get("prev_sentence"),
-                sample.get("target_sentence"),
-                sample.get("next_sentence"),
-                sample.get("label")
-            ))
+        for article in articles:
+            article_id = article["article"]   # ex: 경제_1
 
-            count += 1
+            for sample in article["samples"]:
+                cursor.execute("""
+                    INSERT OR IGNORE INTO samples
+                    (sample_id, article_id, category, previous, target, next, predicted)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    sample["sample_id"],
+                    article_id,
+                    category,
+                    sample.get("prev_sentence"),
+                    sample.get("target_sentence"),
+                    sample.get("next_sentence"),
+                    sample.get("label")
+                ))
+
+                count += 1
+                total_count += 1
+
+        print(f"   → {count}개 저장 완료")
 
     conn.commit()
     conn.close()
 
-    print(f"✅ {count}개 샘플 DB 저장 완료!")
+    print(f"\n✅ 전체 {total_count}개 샘플 DB 저장 완료!")
 
 
-load_samples(file_path)
+if __name__ == "__main__":
+    load_all_samples()
