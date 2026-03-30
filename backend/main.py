@@ -80,50 +80,71 @@ def load_annotation(sample_id: str, annotator: str):
 
 
 @app.get("/sample")
-def get_sample(annotator: str = None):
+def get_sample(annotator: str = None, category: str = None):
     global current_idx
-    sample = samples[current_idx]
+    
+    # category 바뀌면 index 초기화
+    current_idx = 0
+
+    # category 필터링
+    filtered = samples
+    if category and category != "ALL":
+        filtered = [s for s in samples if s["category"] == category]
+
+    if len(filtered) == 0:
+        return {"error": "no samples"}
+
+    sample = filtered[current_idx % len(filtered)]
 
     result = {
         **sample,
-        "current_index": current_idx + 1,
-        "total": len(samples)
+        "current_index": (current_idx % len(filtered)) + 1,
+        "total": len(filtered)
     }
 
-    result.update(load_annotation(sample["sample_id"], annotator))
     return result
 
 
 @app.get("/next")
-def next_sample(annotator: str = None):
+def next_sample(annotator: str = None, category: str = None):
     global current_idx
-    if current_idx < len(samples) - 1:
-        current_idx += 1
 
-    sample = samples[current_idx]
-    result = {
+    filtered = samples
+    if category and category != "ALL":
+        filtered = [s for s in samples if s["category"] == category]
+
+    if len(filtered) == 0:
+        return {"error": "no samples"}
+
+    current_idx = (current_idx + 1) % len(filtered)
+
+    sample = filtered[current_idx]
+
+    return {
         **sample,
         "current_index": current_idx + 1,
-        "total": len(samples)
+        "total": len(filtered)
     }
-    result.update(load_annotation(sample["sample_id"], annotator))
-    return result
 
 
 @app.get("/prev")
-def prev_sample(annotator: str = None):
+def prev_sample(annotator: str = None, category: str = None):
     global current_idx
+
+    filtered = samples
+    if category and category != "ALL":
+        filtered = [s for s in samples if s["category"] == category]
+
     if current_idx > 0:
         current_idx -= 1
 
-    sample = samples[current_idx]
-    result = {
+    sample = filtered[current_idx]
+
+    return {
         **sample,
         "current_index": current_idx + 1,
-        "total": len(samples)
+        "total": len(filtered)
     }
-    result.update(load_annotation(sample["sample_id"], annotator))
-    return result
 
 
 @app.post("/submit")
