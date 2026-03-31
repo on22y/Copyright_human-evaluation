@@ -46,26 +46,30 @@ def compute_fleiss_kappa(data):
 
 # Krippendorff Alpha (q1, ordinal)
 def compute_krippendorff_alpha_q1(sample_dict):
+    # 전체 annotator 목록
+    annotators = sorted(list(set(
+        a for items in sample_dict.values()
+        for a, _, _ in items
+    )))
+
     matrix = []
 
     for sample_id, items in sample_dict.items():
+        ann_dict = {a: q1 for a, _, q1 in items}
+
         row = []
+        for a in annotators:
+            row.append(ann_dict.get(a, None))  # 없으면 None
 
-        for annotator, label, q1 in items:
-            if q1 is None:
-                continue
-            row.append(q1)
-
-        if len(row) > 0:
-            matrix.append(row)
+        matrix.append(row)
 
     if len(matrix) == 0:
         return 0
 
     matrix = np.array(matrix).T
-    
+
     # 완전 동일 값 처리
-    if np.var(matrix) == 0:
+    if np.nanvar(matrix) == 0:
         return 1.0
 
     try:

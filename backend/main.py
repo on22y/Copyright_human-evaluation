@@ -315,7 +315,8 @@ def progress_detail(category: str = "ALL"):
             (category,)
         ).fetchone()[0]
 
-    annotators = ["A", "B", "C"]
+    annotators = ["A", "B", "C", "D", "E"]
+
     result = {}
 
     for a in annotators:
@@ -361,11 +362,14 @@ def get_iaa():
             continue
         sample_dict[sample_id].append((annotator, label, q1))
 
-    # 3명 다 있는 샘플만
+    # 4명 이상의 annotator가 평가한 샘플만 사용
     filtered_dict = {}
+    MIN_ANNOTATORS = 4
+
     for sid, items in sample_dict.items():
-        annotators = set([a for a, _, _ in items])
-        if len(annotators) == 3:
+        annotators_in_sample = set([a for a, _, _ in items])
+
+        if len(annotators_in_sample) >= MIN_ANNOTATORS:
             filtered_dict[sid] = items
 
     if len(filtered_dict) == 0:
