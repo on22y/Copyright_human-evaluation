@@ -24,6 +24,8 @@ function App() {
 
   const ANNOTATORS = ["A", "B", "C", "D", "E"];
 
+  const BASE_URL = "https://copyright-human-evaluation.onrender.com";
+
   useEffect(() => {
     fetchSample();
     fetchProgress();
@@ -51,7 +53,7 @@ function App() {
     if (annotator) {
       try {
         const ann = await axios.get(
-          `http://127.0.0.1:8000/annotation/${sampleData.sample_id}/${annotator}`
+          `${BASE_URL}/annotation/${sampleData.sample_id}/${annotator}`
         );
 
         setScores({ q1: ann.data.q1 });
@@ -66,9 +68,8 @@ function App() {
 
   const fetchSample = async (selectedCategory = category) => {
     const res = await axios.get(
-      `http://127.0.0.1:8000/sample?annotator=${annotator || ""}&category=${selectedCategory}`
+      `${BASE_URL}/sample?annotator=${annotator || ""}&category=${selectedCategory}`
     );
-    const data = res.data;
 
     setSample(data);
     setCurrentStep(data.current_index);
@@ -81,7 +82,7 @@ function App() {
     if (currentStep === total) return;
 
     const res = await axios.get(
-      `http://127.0.0.1:8000/next?annotator=${annotator || ""}&category=${category}`
+      `${BASE_URL}/next?annotator=${annotator || ""}&category=${category}`
     );
     const data = res.data;
 
@@ -96,7 +97,7 @@ function App() {
     if (currentStep === 1) return;
 
     const res = await axios.get(
-      `http://127.0.0.1:8000/prev?annotator=${annotator || ""}&category=${category}`
+      `${BASE_URL}/prev?annotator=${annotator || ""}&category=${category}`
     );
     const data = res.data;
 
@@ -109,20 +110,20 @@ function App() {
 
   const fetchProgress = async (selectedCategory = category) => {
     const res = await axios.get(
-      `http://127.0.0.1:8000/progress?annotator=${annotator || ""}&category=${selectedCategory}`
+      `${BASE_URL}/progress?annotator=${annotator || ""}&category=${selectedCategory}`
     );
     setProgress(res.data);
   };
 
   const fetchProgressDetail = async (selectedCategory = category) => {
     const res = await axios.get(
-      `http://127.0.0.1:8000/progress_detail?category=${selectedCategory}`
+      `${BASE_URL}/progress_detail?category=${selectedCategory}`
     );
     setProgressDetail(res.data);
   };
 
   const fetchIAA = async () => {
-    const res = await axios.get("http://127.0.0.1:8000/iaa");
+    const res = await axios.get(`${BASE_URL}/iaa`);
     setIAA(res.data);
   };
 
@@ -151,7 +152,7 @@ function App() {
     }
 
     try {
-      await axios.post("http://127.0.0.1:8000/submit", {
+      await axios.post(`${BASE_URL}/submit`, {
         sample_id: current.sample_id,
         annotator,
         q1: scores.q1,
