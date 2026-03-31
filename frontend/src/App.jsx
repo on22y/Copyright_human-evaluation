@@ -22,6 +22,8 @@ function App() {
   const [category, setCategory] = useState("ALL");
   const [progressDetail, setProgressDetail] = useState({});
 
+  const ANNOTATORS = ["A", "B", "C", "D", "E"];
+
   useEffect(() => {
     fetchSample();
     fetchProgress();
@@ -213,7 +215,7 @@ function App() {
             </span>
 
             <div className="annotator-progress horizontal">
-              {["A", "B", "C"].map((a) => {
+              {ANNOTATORS.map((a) => {
                 const p = progressDetail[a] || { done: 0, total: 1 };
 
                 return (
@@ -310,7 +312,7 @@ function App() {
             </p>
 
             <div className="annotator-group">
-              {["A", "B", "C"].map((a) => (
+              {ANNOTATORS.map((a) => (
                 <button
                   key={a}
                   onClick={async () => {
