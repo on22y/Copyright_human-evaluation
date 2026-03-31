@@ -1,9 +1,9 @@
 import numpy as np
-from collections import defaultdict, Counter
-from sklearn.metrics import cohen_kappa_score
+from collections import defaultdict
 import krippendorff
 
-# Fleiss' Kappa
+
+# Fleiss' Kappa (label)
 def compute_fleiss_kappa(data):
     label_map = {"F":0, "C":1, "M":2}
     k = 3
@@ -17,95 +17,67 @@ def compute_fleiss_kappa(data):
 
     M = np.array(list(sample_dict.values()))
 
-    n = np.sum(M[0])
+    if len(M) == 0:
+        return 0
+
+    n = np.max(np.sum(M, axis=1))
+    if n < 2:
+        return 0
+
     N = len(M)
 
-    P = (np.sum(M*M, axis=1) - n) / (n*(n-1))
+    denominator = n * (n - 1)
+    if denominator == 0:
+        return 0
+
+    P = (np.sum(M*M, axis=1) - n) / denominator
     P_bar = np.mean(P)
 
     p = np.sum(M, axis=0) / (N*n)
     P_e = np.sum(p*p)
 
     kappa = (P_bar - P_e) / (1 - P_e)
+
+    if np.isnan(kappa) or np.isinf(kappa):
+        return 0
+
     return float(kappa)
 
 
-# Exact Agreement
-def compute_exact_agreement(sample_dict):
-    total = len(sample_dict)
-    agree = 0
-
-    for labels in sample_dict.values():
-        if len(set(labels)) == 1:
-            agree += 1
-
-    return agree / total if total > 0 else 0
-
-
-
-# Partial Agreement
-def compute_partial_agreement(sample_dict):
-    total = len(sample_dict)
-    agree = 0
-
-    for labels in sample_dict.values():
-        counter = Counter(labels)
-        if max(counter.values()) >= 2:
-            agree += 1
-
-    return agree / total if total > 0 else 0
-
-
-
-# Cohen’s Kappa (pairwise)
-def compute_cohen_kappa(sample_dict_with_annotator):
-    pairs = [("A","B"), ("A","C"), ("B","C")]
-    results = {}
-
-    for a1, a2 in pairs:
-        y1, y2 = [], []
-
-        for sample_id, items in sample_dict_with_annotator.items():
-            label_map = {a:l for a,l in items}
-
-            if a1 in label_map and a2 in label_map:
-                y1.append(label_map[a1])
-                y2.append(label_map[a2])
-
-        if len(y1) > 0:
-            results[f"{a1}-{a2}"] = float(cohen_kappa_score(y1, y2))
-
-    return results
-
-
-
-# Krippendorff’s Alpha
-def compute_krippendorff_alpha(sample_dict_with_annotator):
-    label_map = {"F":0, "C":1, "M":2}
-
+# Krippendorff Alpha (q1, ordinal)
+def compute_krippendorff_alpha_q1(sample_dict):
     matrix = []
 
-    for sample_id, items in sample_dict_with_annotator.items():
+    for sample_id, items in sample_dict.items():
         row = []
-        annot_map = {a:l for a,l in items}
 
-        for a in ["A","B","C"]:
-            if a in annot_map:
-                row.append(label_map[annot_map[a]])
-            else:
-                row.append(np.nan)
+        for annotator, label, q1 in items:
+            if q1 is None:
+                continue
+            row.append(q1)
 
-        matrix.append(row)
+        if len(row) > 0:
+            matrix.append(row)
 
     if len(matrix) == 0:
         return 0
 
     matrix = np.array(matrix).T
+    
+    # 완전 동일 값 처리
+    if np.var(matrix) == 0:
+        return 1.0
 
     try:
-        alpha = krippendorff.alpha(matrix, level_of_measurement='nominal')
+        alpha = krippendorff.alpha(
+            matrix,
+            level_of_measurement='ordinal'
+        )
+
         if np.isnan(alpha) or np.isinf(alpha):
-            return 0
+            return 1.0
+
         return float(alpha)
+
     except:
         return 0

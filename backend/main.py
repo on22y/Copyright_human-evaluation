@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from iaa import compute_fleiss_kappa
+from iaa import compute_fleiss_kappa, compute_krippendorff_alpha_q1
 from database import init_db, get_db
 import os
 import json
@@ -342,62 +342,48 @@ def progress_detail(category: str = "ALL"):
     return result
 
 
-from iaa import (
-    compute_fleiss_kappa,
-    # compute_exact_agreement,
-    # compute_partial_agreement,
-    # compute_cohen_kappa,
-    compute_krippendorff_alpha
-)
-
-
 @app.get("/iaa")
 def get_iaa():
     conn = get_db()
     cursor = conn.cursor()
 
+    # q1까지 가져오기
     rows = cursor.execute("""
-        SELECT sample_id, annotator, final_label
+        SELECT sample_id, annotator, final_label, q1
         FROM annotations
     """).fetchall()
     conn.close()
 
     sample_dict = defaultdict(list)
 
-    for sample_id, annotator, label in rows:
+    for sample_id, annotator, label, q1 in rows:
         if label not in ["F", "C", "M"]:
             continue
-        sample_dict[sample_id].append((annotator, label))
+        sample_dict[sample_id].append((annotator, label, q1))
 
     # 3명 다 있는 샘플만
     filtered_dict = {}
     for sid, items in sample_dict.items():
-        annotators = set([a for a,_ in items])
+        annotators = set([a for a, _, _ in items])
         if len(annotators) == 3:
-            filtered_dict[sid] = [items]
+            filtered_dict[sid] = items
 
     if len(filtered_dict) == 0:
         return {
             "fleiss_kappa": 0,
-            # "exact_agreement": 0,
-            # "partial_agreement": 0,
-            # "cohen_kappa": {},
-            "krippendorff_alpha": 0
+            "alpha_q1": 0
         }
 
-    # Fleiss용 변환
+    # Fleiss input (label만)
     fleiss_input = []
-    for sid, labels in filtered_dict.items():
-        for _, l in items:
+    for sid, items in filtered_dict.items():
+        for _, label, _ in items:
             fleiss_input.append({
                 "sample_id": sid,
-                "label": l
+                "label": label
             })
 
     return {
         "fleiss_kappa": compute_fleiss_kappa(fleiss_input),
-        # "exact_agreement": compute_exact_agreement(filtered_dict),
-        # "partial_agreement": compute_partial_agreement(filtered_dict),
-        # "cohen_kappa": compute_cohen_kappa(sample_dict),
-        "krippendorff_alpha": compute_krippendorff_alpha(filtered_dict)
+        "alpha_q1": compute_krippendorff_alpha_q1(filtered_dict)
     }
